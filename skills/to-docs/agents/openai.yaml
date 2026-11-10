@@ -1,0 +1,5 @@
+interface:
+  display_name: "To docs"
+  short_description: "Maintain per-feature rules"
+policy:
+  allow_implicit_invocation: true

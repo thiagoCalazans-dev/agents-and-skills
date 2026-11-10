@@ -1,0 +1,5 @@
+interface:
+  display_name: "Merge gate"
+  short_description: "Decide and merge through the gate"
+policy:
+  allow_implicit_invocation: true

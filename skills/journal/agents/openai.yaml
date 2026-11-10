@@ -1,0 +1,5 @@
+interface:
+  display_name: "Journal"
+  short_description: "File product notes for triage"
+policy:
+  allow_implicit_invocation: true

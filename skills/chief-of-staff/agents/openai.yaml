@@ -1,0 +1,5 @@
+interface:
+  display_name: "Chief of staff"
+  short_description: "Drive the ticket pipeline"
+policy:
+  allow_implicit_invocation: true

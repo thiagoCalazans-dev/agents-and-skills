@@ -1,0 +1,5 @@
+interface:
+  display_name: "Prototype"
+  short_description: "Screen or logic prototype"
+policy:
+  allow_implicit_invocation: true

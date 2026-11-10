@@ -1,0 +1,5 @@
+interface:
+  display_name: "Code review"
+  short_description: "Two-axis review with a verdict on the PR"
+policy:
+  allow_implicit_invocation: true

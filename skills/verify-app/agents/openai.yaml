@@ -1,0 +1,5 @@
+interface:
+  display_name: "Verify the app"
+  short_description: "Proves the change in the running app"
+policy:
+  allow_implicit_invocation: true

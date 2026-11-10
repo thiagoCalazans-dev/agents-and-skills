@@ -1,0 +1,5 @@
+interface:
+  display_name: "To tickets"
+  short_description: "Break a spec into tickets"
+policy:
+  allow_implicit_invocation: true
