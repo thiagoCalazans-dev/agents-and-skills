@@ -53,7 +53,7 @@ Two modes:
 
 ## 2. Write
 
-1. Create branch `docs/spec-<number>` from an updated main branch.
+1. Run `git fetch origin` and create branch `docs/spec-<number>` from `origin/<main branch>`.
 2. For each feature in "Docs to Update", create or update the file: new rules, changed rules (with the old text in "History") and removed rules.
 3. If the spec brought new terms or a technical decision worth an ADR, use the `domain-modeling` skill for the glossary and ADRs.
 4. **Divergence:** if a merged diff does something other than what the spec says, document what **landed** and record the difference in the PR. Don't pick on your own which one is right.

@@ -63,7 +63,7 @@ Start every effort at the level above and raise it only with evidence from `retr
 Every agent that runs on "This computer" works **in its own folder** of the repo, one `git worktree` per agent, so no agent ever switches another's branch:
 
 ```bash
-git worktree add ../<repo>-implementer <main branch>
+git worktree add --detach ../<repo>-implementer origin/<main branch>
 ```
 
 Watch for ports: the Implementer and the Designer both start the app. If the project uses fixed ports, they can't run the app at the same time; use ports per folder or a turn rule.

@@ -9,7 +9,7 @@ If the question is about logic or state rather than looks, this is the wrong bra
 1. Read `docs/agents/design.md` and the design system it points to (tokens, components, tone). Every version uses only its tokens and components.
 2. If you got a ticket, read the ticket and its parent spec: the screen must show what the acceptance criteria ask for.
 3. If the ticket already has your comments with versions and a reply from the human, go straight to "Answer the human".
-4. Create branch `prototype/<ticket number>` from an updated main branch (or return to it if it exists).
+4. Run `git fetch origin` and create branch `prototype/<ticket number>` from `origin/<main branch>` (or return to it if it exists).
 
 ## How many versions
 

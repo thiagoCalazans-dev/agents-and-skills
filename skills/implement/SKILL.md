@@ -17,7 +17,7 @@ Two modes:
 ## 1. Prepare
 
 1. Check the working tree is clean (`git status --short`). With uncommitted changes, end in `blocked`.
-2. Update the main branch: `git switch <main branch> && git pull --ff-only`.
+2. Update from the remote: `git fetch origin`. Work from `origin/<main branch>`, never by switching to the main branch itself: in a `git worktree` it may be checked out in another folder.
 3. Read the ticket and check:
    - it is open and has the `ready-for-agent` role;
    - it doesn't have the `in-progress` role;
@@ -25,7 +25,7 @@ Two modes:
    - the parent spec, if any, exists.
 
    If any check fails, end in `blocked` with the reason.
-4. Create branch `ticket/<NN>-<short-name>` from the main branch (lowercase, no accents, from the title). If it already exists, end in `blocked`.
+4. Create branch `ticket/<NN>-<short-name>` with `git switch -c <branch> origin/<main branch>` (lowercase, no accents, from the title). If it already exists, end in `blocked`.
 5. Apply the `in-progress` role to the ticket. Don't edit the ticket's title or body.
 
 Done when the branch exists and the ticket is `in-progress`.
