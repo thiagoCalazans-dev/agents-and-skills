@@ -5,7 +5,7 @@ description: Decide whether a PR can land without a human and, if so, merge it t
 
 # Merge gate
 
-This skill's `scripts/merge-gate.sh` decides whether a merge may happen; it never merges. It reads the rules from `docs/agents/merge-gate.md`: required checks, sensitive paths, the risks that may land without a human, the verdict marker and the merge method. The main branch comes from the `main-branch` block of `docs/agents/commands.md`. Without those files, tell the user to run `setup-skills` and stop.
+The gate is this skill's script, at `~/.claude/skills/merge-gate/scripts/merge-gate.sh` (or `~/.codex/skills/merge-gate/scripts/merge-gate.sh`, if only Codex has the skill). Below, `<gate>` means that full path. Always call it by the full path, from the repo root: `scripts/merge-gate.sh` alone points to the repo, not to this skill. The gate decides whether a merge may happen; it never merges. It reads the rules from `docs/agents/merge-gate.md`: required checks, sensitive paths, the risks that may land without a human, the verdict marker and the merge method. The main branch comes from the `main-branch` block of `docs/agents/commands.md`. Without those files, tell the user to run `setup-skills` and stop.
 
 The script clears a PR only when all of this holds:
 
@@ -17,7 +17,7 @@ The script clears a PR only when all of this holds:
 
 ## 1. Consult the gate
 
-Run `scripts/merge-gate.sh <PR>` from the repo root.
+Run `<gate> <PR>` from the repo root.
 
 - **Exit 0:** cleared. The last line is `MERGE WITH: <command>`; keep that command. Go to step 2.
 - **Exit 10:** the gate wants a human. The output lists the reasons. End in `call the human`.
@@ -42,7 +42,7 @@ End in `call the human` when:
 2. Run the gate again and the merge in **one command line**, joined by `&&`:
 
    ```bash
-   scripts/merge-gate.sh <PR> && <the MERGE WITH command from step 1>
+   <gate> <PR> && <the MERGE WITH command from step 1>
    ```
 
    The gate re-runs every check, and the merge runs only if it clears. `--match-head-commit` refuses the merge if the PR got a new commit since step 1. Keep it in one line: the agent host only applies its merge rule to commands it can see. If the merge is refused, end in `call the human`.

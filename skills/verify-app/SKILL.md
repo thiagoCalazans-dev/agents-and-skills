@@ -92,8 +92,10 @@ Run the "Clean up" command. It stops only what this run started and checks that 
 Publish only screenshots this skill produced, with test data. Look at each one first. Any other screenshot, from an environment with real data say, needs the user's authorization.
 
 ```bash
-<this skill's folder>/scripts/publish-evidence.sh <PR> <evidence folder>
+~/.claude/skills/verify-app/scripts/publish-evidence.sh <PR> <evidence folder>
 ```
+
+If only Codex has the skill, the script is at `~/.codex/skills/verify-app/scripts/publish-evidence.sh`. Always call it by the full path: `scripts/publish-evidence.sh` alone points to the repo.
 
 The script stores the images and summaries in a loose commit pointed at by `refs/verify-app/<run>`, outside any branch, and comments on the PR with the images. It does not publish traces, failure videos or logs, which may hold requests and cookies. **If the repo is public, the images open for anyone.** The command to delete the ref is at the end of the comment; run it after the merge.
 
