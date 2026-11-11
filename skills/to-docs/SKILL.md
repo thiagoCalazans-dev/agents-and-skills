@@ -24,7 +24,6 @@ Two modes:
 ## Rules
 
 1. <Rule in plain language.>
-   _Source: spec #12, PR #34. In force since 2026-11-08._
 2. ...
 
 ## Out of scope / known limits
@@ -37,12 +36,12 @@ Two modes:
 
 ## History
 
-- 2026-11-08: rule 3 said "<old text>"; changed by spec #12.
+- 2026-11-08: rules 7 and 8 added; rule 3 said "<old text>"; changed by spec #12, PR #34.
 ```
 
 - **One rule, one or two sentences**, in the glossary's terms. No file paths or function names, except under "Related".
 - **Stable numbers:** a new rule gets the next free number, and numbers are never reused. A removed rule leaves "Rules" and goes to "History" as "removed".
-- **Every rule cites its source and date.** When it changes, the old text goes to "History"; nothing is deleted without a record.
+- **The source lives in "History", one line per change:** the date, the rules added, changed or removed (a changed rule keeps its old text there), and the spec and PRs behind them. "Rules" stays clean to read; nothing is deleted without a record.
 - **One file per feature,** with short names (`auth.md`, `support.md`). A rule spanning several features lives in the one that owns it, and the others point there.
 
 ## 1. Gather what landed
@@ -61,7 +60,7 @@ Two modes:
 ## 3. Check
 
 - Every spec decision that changes behaviour shows up in some rule.
-- Every new or changed rule cites `spec #<n>` and at least one PR.
+- Every rule added, changed or removed appears in a "History" line citing `spec #<n>` and at least one PR.
 - Reread each file as someone who doesn't know the code: can you tell what the system does?
 
 ## 4. Open the PR
@@ -76,7 +75,7 @@ Two modes:
 1. Read the whole old document and `docs/agents/domain.md`.
 2. Group the rules by feature, following the old document's headings and the code's modules.
 3. Check each rule against the code: does it still hold? A rule the code doesn't follow goes to the PR's "Divergences" section, not into the rules.
-4. Write the files in the format above, with the source "migrated from `<document>`" and today's date. "History" starts empty.
+4. Write the files in the format above. "History" starts with one line: today's date and "rules migrated from `<document>` (<sections>)".
 5. In `docs/agents/domain.md`, replace the note pointing to the old document as the current source with `docs/features/`.
 6. Open the PR on branch `docs/migrate-<document>`, with the table "old document section → feature file" and the divergences. Don't delete the old document: say in the PR that deleting it is the human's call.
 
