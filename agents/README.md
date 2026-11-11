@@ -66,6 +66,14 @@ Every agent that runs on "This computer" works **in its own folder** of the repo
 git worktree add --detach ../<repo>-implementer origin/<main branch>
 ```
 
+On "This computer", Tucano starts every agent in its own data folder, not in the repo, and the agent's "Folders" setting only applies to the isolated Linux computer. So tell each agent its folder at the top of its instructions in Tucano. This line stays in Tucano, not in the cards, because the path belongs to the project:
+
+```
+Your project folder is /home/<you>/code/<repo>-<handle>. Start every command there (cd into it first). Never work in another agent's folder.
+```
+
+Set the actions on each agent's Tools tab, under "Adjust action by action". Tucano matches only the command line the agent runs, never what a script runs inside it. That is why `merge-gate` keeps the merge out of its script: the Chief runs `merge-gate.sh <PR> && gh pr merge ...` in one line, so the Chief's "Merge" rule applies.
+
 Watch for ports: the Implementer and the Designer both start the app. If the project uses fixed ports, they can't run the app at the same time; use ports per folder or a turn rule.
 
 ## Card format

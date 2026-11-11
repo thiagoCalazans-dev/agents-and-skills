@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Gate for merging without a human. When in doubt, call the human.
 #
-# Usage: merge-gate.sh <PR> [--merge]
-# Exit: 0 cleared (or merged), 10 call the human, 11 waiting for CI, 2 lookup error.
+# Usage: merge-gate.sh <PR>
+# Exit: 0 cleared, 10 call the human, 11 waiting for CI, 2 lookup error.
+#
+# It never merges. When cleared, it prints the merge command to run right after
+# it, in the same command line, so the agent host sees the merge and applies
+# its own rule for it: merge-gate.sh <PR> && gh pr merge ...
 #
 # The rules come from docs/agents/merge-gate.md (written by setup-skills),
 # from the code blocks with these names: checks, sensitive-paths,
@@ -16,9 +20,8 @@ fail() {
 }
 
 pr="${1:-}"
-action="${2:-}"
-if [[ ! "$pr" =~ ^[0-9]+$ ]] || [[ -n "$action" && "$action" != "--merge" ]]; then
-  echo "Usage: merge-gate.sh <PR> [--merge]" >&2
+if [[ ! "$pr" =~ ^[0-9]+$ ]] || (($# != 1)); then
+  echo "Usage: merge-gate.sh <PR>" >&2
   exit 2
 fi
 
@@ -156,7 +159,4 @@ if ((${#pending[@]} > 0)); then
 fi
 
 echo "CLEARED: PR $pr at $head"
-if [[ "$action" == "--merge" ]]; then
-  gh pr merge "$pr" "--$method" --match-head-commit "$head" || fail "merge refused"
-  echo "MERGED: PR $pr"
-fi
+echo "MERGE WITH: gh pr merge $pr --$method --match-head-commit $head"

@@ -6,7 +6,7 @@ Runs the pipeline: decides the next step from the tracker's state, merges throug
 
 - **Harness · model · effort:** Claude Code · Sonnet 5.5 · medium
 - **Fallback:** Codex · gpt-5.6-sol · medium
-- **Computer:** This computer, **in its own folder** of the repo (see "Folders" in the [README](README.md)). It runs `merge-gate.sh` and `gh` with your login.
+- **Computer:** This computer, **in its own folder** of the repo (see "Folders" in the [README](README.md)). It runs `merge-gate.sh` and `gh` with your login. The merge runs in the same command line as the gate (`merge-gate.sh <PR> && gh pr merge ...`), so Tucano applies the `merge` rule.
 - **Connectors:** none; it uses `gh` on the computer.
 - **Actions:**
   - `merge`: automatic, because the gate decides (only a cleared risk in `auto-merge-risk` lands without you);
