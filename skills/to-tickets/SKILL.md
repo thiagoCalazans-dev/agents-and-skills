@@ -32,6 +32,12 @@ Break the work into **tracer-bullet** tickets:
 
 Give each ticket its **blocking edges**: the tickets that must finish before it can start. A ticket with no blockers can start right away.
 
+**Slice by risk, for the merge gate.** Keep the risky part as small as possible, so the rest can land without the human:
+- Isolate what is `risk:high` (a sensitive path, schema, auth, permissions, a critical rule) in its own ticket, as narrow as it can be.
+- Put that riskiest ticket **first**, and make the lower-risk tickets depend on it. The human reviews the risky core once; the tickets after it build on top of it and flow through the gate alone.
+- Don't mix risk levels in one ticket: a `risk:low` change (texts, styles, purely additive UI) that rides with a `risk:medium` or `risk:high` change gets its own ticket when it is still a vertical, verifiable slice.
+- Never lower a ticket's risk by splitting it artificially: each ticket's risk still follows the rule in `merge-gate.md`.
+
 **Wide refactors are the exception.** A mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase can't fit in one slice that lands green. Sequence it as **expand–contract**:
 - **Expand:** add the new form beside the old.
 - **Migrate:** move the callers in batches sized by blast radius, one ticket per batch, each blocked by the expand.
