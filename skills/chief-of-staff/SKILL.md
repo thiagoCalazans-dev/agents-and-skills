@@ -27,7 +27,7 @@ Done when you know where every PR and every ticket in flight stands.
 
 Go in order. Each item can produce an action; carry on to the end of the list.
 
-1. **Approved PR:** a PR whose verdict is `approve` on the latest commit → run the `merge-gate` skill on it. If it ends in `waiting for CI`, the action is `waiting #<PR>`. If it ends in `call the human` or `error`, the action is `call the human`.
+1. **Approved PR:** a PR whose verdict is `approve` on the latest commit → run the `merge-gate` skill on it (it pauses for the human's answer when the Reviewer left pending findings). If it ends in `waiting for CI`, the action is `waiting #<PR>`. If it ends in `call the human` or `error`, the action is `call the human`.
 2. **Rounds exhausted:** a PR whose latest verdict says "Round: 3/2" → `call the human`.
 3. **Spec done:** an open spec, without the `to-docs` role, whose tickets are all closed → apply `to-docs` to it and produce the action `document spec #N`. **Never close the spec.**
 4. **Pipeline busy:** if `commands.md` says one task at a time and a ticket is still `in-progress` or a PR is open and unmerged → the action is `waiting #<ticket or PR>`. Stop here.

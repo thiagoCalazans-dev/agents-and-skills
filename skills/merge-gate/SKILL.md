@@ -36,9 +36,22 @@ End in `call the human` when:
 - a test was weakened to pass;
 - an acceptance criterion needs validation by a human or a real external service.
 
-## 3. Merge
+## 3. Pending reviewer findings
 
-1. Comment on the PR with the gate's result and one paragraph of your judgement.
+Before any merge, read the Reviewer's latest verdict on the PR (and its earlier comments) for findings still pending: suggestions, smells, judgement calls or any point not yet resolved. If there is **at least one**, the merge **always waits for the human's answer**, even when the gate is cleared, the verdict is `approve`, CI is green and the risk is `risk:low` or `risk:medium`. Silence, a green CI, an approval or a low risk never count as authorization.
+
+1. Present **all** pending findings to the human, none left out, each with its file/hunk and axis (Standards or Spec).
+2. Ask with `ask_user` (the question goes to the human) and **stop until the answer arrives**. Options:
+   - **Merge anyway:** go to step 4.
+   - **Merge and open a task:** open a ticket recording every pending finding verbatim, with a link to the PR and the verdict, following `docs/agents/issue-tracker.md` and `docs/agents/labels.md` (a new ticket starts in triage). Confirm the ticket exists, then go to step 4. Mention it in the PR comment.
+   - **Resolve before merging:** do not merge. End in `call the human PR #<PR>: findings to resolve before merge`, listing them.
+3. The answer only settles the findings. It never bypasses the gate: a gate that refuses (exit 10 or 11), `risk:high`, a sensitive path or any other restriction above still stops the merge. If the PR gets a new commit, read the findings again.
+
+With no pending findings, skip this step.
+
+## 4. Merge
+
+1. Comment on the PR with the gate's result and one paragraph of your judgement and, if there were pending findings, the human's choice.
 2. Run the gate again and the merge in **one command line**, joined by `&&`:
 
    ```bash
