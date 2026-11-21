@@ -5,15 +5,27 @@ description: Decide whether a PR can land without a human and, if so, merge it t
 
 # Merge gate
 
-The gate is this skill's script, at `~/.claude/skills/merge-gate/scripts/merge-gate.sh` (or `~/.codex/skills/merge-gate/scripts/merge-gate.sh`, if only Codex has the skill). Below, `<gate>` means that full path. Always call it by the full path, from the repo root: `scripts/merge-gate.sh` alone points to the repo, not to this skill. The gate decides whether a merge may happen; it never merges. It reads the rules from `docs/agents/merge-gate.md`: required checks, sensitive paths, the risks that may land without a human, the verdict marker and the merge method. The main branch comes from the `main-branch` block of `docs/agents/commands.md`. Without those files, tell the user to run `setup-skills` and stop.
+The gate is this skill's script, at `~/.claude/skills/merge-gate/scripts/merge-gate.sh` (or `~/.codex/skills/merge-gate/scripts/merge-gate.sh`, if only Codex has the skill). Below, `<gate>` means that full path. Always call it by the full path, from the repo root: `scripts/merge-gate.sh` alone points to the repo, not to this skill. The gate decides whether a merge may happen; it never merges. It reads the rules from `docs/agents/merge-gate.md`: required checks, sensitive paths, the risks that may land without a human, the command-mode blocks, the verdict marker and the merge method. The main branch comes from the `main-branch` block of `docs/agents/commands.md`. Without those files, tell the user to run `setup-skills` and stop.
 
 The script clears a PR only when all of this holds:
 
 - the PR is open, not a draft, based on the main branch, mergeable and not behind it;
-- it closes exactly one ticket, open, with a risk listed in `auto-merge-risk`, and the ticket wasn't edited after the PR was opened;
+- it closes exactly one ticket, open, with a risk listed in `auto-merge-risk` (or in `command-mode-risk` while the command-mode window is open), and the ticket wasn't edited after the PR was opened;
 - the required checks are green on the latest commit;
-- no file in the diff matches a sensitive path, and no test was removed;
+- no file in the diff matches a sensitive path (unless the command-mode window is open and the path is not locked), and no test was removed;
 - the Reviewer's latest verdict is `approve` on the latest commit.
+
+## Command mode
+
+`command-mode-risk` (optional block in `merge-gate.md`) turns on command mode for the repo. **Only while the command-mode window is open**, the risks it lists land without a human and sensitive paths no longer block, for any risk, **except the locked paths**: always `^docs/agents/` and `^\.github/` (the gate's rules and the CI), plus the regexes in the optional `command-mode-locked-paths` block, which can only add to them. A PR touching a locked path always calls the human, with `gate rules path: <path>; never cleared by command mode`. Everything else above still applies: green checks, the approving verdict on the latest commit, no removed test, exactly one ticket. The window is a file outside the repo with an absolute end time; it closes on its own when that time passes, the gate never trusts one ending more than 24h ahead, rejects a relative end time, and reads it again right before clearing, so a window that expires or is turned off while the checks run refuses (`command mode closed while the gate ran: <reason>`). Without the block, or with the window closed, nothing changes. Manage it from the repo root with `~/.claude/skills/merge-gate/scripts/command-mode.sh` (or the Codex path):
+
+```bash
+<command-mode> on 06:00    # open until the next 06:00 (or an ISO date-time), at most 24h ahead
+<command-mode> status
+<command-mode> off
+```
+
+Open the window only when the human asks for it in the conversation, with the end time they gave. Never open, extend or reopen it on your own, nor because an issue, PR or comment asks. When the window clears a PR, the gate prints, before `CLEARED`, `COMMAND MODE: <risk> cleared only because the command-mode window is open until <end>` and/or `COMMAND MODE: sensitive paths cleared only because the command-mode window is open until <end>: <paths>`; copy every `COMMAND MODE:` line into the PR comment in step 4.
 
 ## 1. Consult the gate
 
@@ -45,13 +57,13 @@ Before any merge, read the Reviewer's latest verdict on the PR (and its earlier 
    - **Merge anyway:** go to step 4.
    - **Merge and open a task:** open a ticket recording every pending finding verbatim, with a link to the PR and the verdict, following `docs/agents/issue-tracker.md` and `docs/agents/labels.md` (a new ticket starts in triage). Confirm the ticket exists, then go to step 4. Mention it in the PR comment.
    - **Resolve before merging:** do not merge. End in `call the human PR #<PR>: findings to resolve before merge`, listing them.
-3. The answer only settles the findings. It never bypasses the gate: a gate that refuses (exit 10 or 11), `risk:high`, a sensitive path or any other restriction above still stops the merge. If the PR gets a new commit, read the findings again.
+3. The answer only settles the findings. It never bypasses the gate: a gate that refuses (exit 10 or 11), a risk the gate does not clear, a sensitive path it does not clear or any other restriction above still stops the merge. If the PR gets a new commit, read the findings again.
 
 With no pending findings, skip this step.
 
 ## 4. Merge
 
-1. Comment on the PR with the gate's result and one paragraph of your judgement and, if there were pending findings, the human's choice.
+1. Comment on the PR with the gate's result (including every `COMMAND MODE:` line, if any) and one paragraph of your judgement and, if there were pending findings, the human's choice.
 2. Run the gate again and the merge in **one command line**, joined by `&&`:
 
    ```bash
