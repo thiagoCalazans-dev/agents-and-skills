@@ -22,7 +22,7 @@ case "\$args" in
   *check-runs*) echo "\${FAKE_CHECK:-success}" ;;
   *compare*) echo 0 ;;
   *"/files"*) printf '%b\n' "\${FAKE_FILES:-modified\tsrc/app.go\t}" ;;
-  *"/comments"*) printf '<!-- REVIEWER-VERDICT -->\037Verdict: approve\037Commit: $head_sha\037Round: 1/2\n' ;;
+  *"/comments"*) printf '<!-- REVIEWER-VERDICT -->\037Verdict: approve\037Commit: %s\037Round: 1/2\n' "\${FAKE_COMMIT:-$head_sha}" ;;
   *) echo "fake gh: unexpected: \$args" >&2; exit 1 ;;
 esac
 FAKE
@@ -72,6 +72,7 @@ rm -f "$window"
 expect "risk:medium clears as before" 0 "CLEARED: PR 42" FAKE_LABELS=risk:medium
 set_window "$(iso '+2 hours')"
 expect "risk:high without the command-mode block calls the human, even with a window" 10 "risk needs human approval" FAKE_LABELS=risk:high
+expect "a sensitive path without the command-mode block calls the human, even with a window" 10 "sensitive path: deploy/x.yml" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\tdeploy/x.yml\t'
 
 write_config with-command-mode
 rm -f "$window"
@@ -83,6 +84,13 @@ expect "risk:high with a window over 24h calls the human" 10 "ends more than 24h
 set_window "not a date"
 expect "risk:high with an invalid window calls the human" 10 "invalid end time" FAKE_LABELS=risk:high
 
+rm -f "$window"
+expect "no window: a sensitive path calls the human" 10 "sensitive path: deploy/x.yml; command mode: off" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\tdeploy/x.yml\t'
+set_window "$(iso '-1 minute')"
+expect "expired window: a sensitive path calls the human" 10 "sensitive path: deploy/x.yml; command mode: expired at" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\tdeploy/x.yml\t'
+set_window "$(iso '+30 hours')"
+expect "window over 24h: a sensitive path calls the human" 10 "sensitive path: deploy/x.yml; command mode: ends more than 24h ahead" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\tdeploy/x.yml\t'
+
 set_window "$(iso '+2 hours')"
 expect "risk:high inside the window clears" 0 "CLEARED: PR 42" FAKE_LABELS=risk:high
 expect "the output says command mode cleared it" 0 "COMMAND MODE: risk:high cleared only because the command-mode window is open until" FAKE_LABELS=risk:high
@@ -93,8 +101,22 @@ else
   echo "ok   risk:medium does not mention command mode"
 fi
 
-# Inside the window, every other check still holds for risk:high.
-expect "inside the window: a sensitive path calls the human" 10 "sensitive path: deploy/x.yml" FAKE_LABELS=risk:high 'FAKE_FILES=modified\tdeploy/x.yml\t'
+# Inside the window, sensitive paths no longer block, and the output lists them.
+SENS='FAKE_FILES=modified\tdeploy/x.yml\nmodified\tsrc/app.go\nrenamed\tdeploy/b.yml\tdeploy/a.yml'
+expect "inside the window: a sensitive path clears" 0 "CLEARED: PR 42" FAKE_LABELS=risk:high "$SENS"
+expect "inside the window: the output lists the cleared sensitive paths" 0 "COMMAND MODE: sensitive paths cleared only because the command-mode window is open until $(head -1 "$window"): deploy/a.yml, deploy/b.yml, deploy/x.yml" FAKE_LABELS=risk:high "$SENS"
+expect "inside the window: risk:medium on a sensitive path clears" 0 "COMMAND MODE: sensitive paths cleared" FAKE_LABELS=risk:medium "$SENS"
+out=$(run_gate FAKE_LABELS=risk:high)
+if [[ "$out" == *"sensitive paths cleared"* ]]; then
+  echo "FAIL no sensitive path, no sensitive-path line"; failures=$((failures + 1))
+else
+  echo "ok   no sensitive path, no sensitive-path line"
+fi
+
+# Inside the window, every other check still holds.
+expect "inside the window: a sensitive path with a removed test calls the human" 10 "removes a test" FAKE_LABELS=risk:high 'FAKE_FILES=modified\tdeploy/x.yml\nremoved\tsrc/app_test.go\t'
+expect "inside the window: a sensitive path with a red check calls the human" 10 "check 'CI': failure" FAKE_LABELS=risk:high FAKE_CHECK=failure "$SENS"
+expect "inside the window: a sensitive path with no verdict for the commit calls the human" 10 "verdict is for another commit" FAKE_LABELS=risk:high FAKE_COMMIT=old999 "$SENS"
 expect "inside the window: a removed test calls the human" 10 "removes a test" FAKE_LABELS=risk:high 'FAKE_FILES=removed\tsrc/app_test.go\t'
 expect "inside the window: a red check calls the human" 10 "check 'CI': failure" FAKE_LABELS=risk:high FAKE_CHECK=failure
 expect "inside the window: two tickets call the human" 10 "exactly one ticket" FAKE_LABELS=risk:high FAKE_CLOSES=7,8
@@ -124,5 +146,6 @@ check_mode "a bare past time means the next one" 0 "COMMAND MODE ON until" on "$
 check_mode "off closes it" 0 "COMMAND MODE OFF" off
 check_mode "status after off" 0 "COMMAND MODE OFF" status
 expect "after off, risk:high calls the human" 10 "command mode: off" FAKE_LABELS=risk:high
+expect "after off, a sensitive path calls the human" 10 "sensitive path: deploy/x.yml; command mode: off" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\tdeploy/x.yml\t'
 
 ((failures == 0)) && echo "all passed" || { echo "$failures failed"; exit 1; }

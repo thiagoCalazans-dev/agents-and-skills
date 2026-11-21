@@ -11,8 +11,9 @@
 # The rules come from docs/agents/merge-gate.md (written by setup-skills),
 # from the code blocks with these names: checks, sensitive-paths,
 # auto-merge-risk, marker and, optionally, merge-method and command-mode-risk.
-# A risk in command-mode-risk lands without a human only while the command-mode
-# window, turned on by the human with command-mode.sh, is open.
+# While the command-mode window, turned on by the human with command-mode.sh,
+# is open (and the command-mode-risk block exists), a risk in command-mode-risk
+# lands without a human and sensitive paths no longer block; every other check holds.
 # The main branch comes from the main-branch block of docs/agents/commands.md.
 set -uo pipefail
 
@@ -81,6 +82,9 @@ command_window() {
   fi
 }
 
+# Read the window once, and only for repos that use command mode.
+((${#command_risk[@]} > 0)) && command_window
+
 # The PR.
 fields=$(gh pr view "$pr" --json state,isDraft,baseRefName,mergeable,headRefOid,createdAt \
   --jq '[.state, .isDraft, .baseRefName, .mergeable, .headRefOid, .createdAt] | @tsv') ||
@@ -122,7 +126,6 @@ else
     done
   fi
   if [[ -n "$command_label" ]]; then
-    command_window
     if [[ "$command_state" == "open" ]]; then
       allowed=1
     else
@@ -154,7 +157,8 @@ behind=$(gh api "repos/{owner}/{repo}/compare/$main_branch...$head" --jq '.behin
   fail "could not compare with $main_branch"
 [[ "$behind" == "0" ]] || refuse "branch is $behind commit(s) behind $main_branch; CI did not test the merge result"
 
-# The files: no sensitive path, no removed test.
+# The files: no sensitive path (unless the command-mode window is open), no removed test.
+released=()
 files=$(gh api --paginate "repos/{owner}/{repo}/pulls/$pr/files" \
   --jq '.[] | [.status, .filename, (.previous_filename // "")] | @tsv') ||
   fail "could not read the PR files"
@@ -164,7 +168,13 @@ while IFS=$'\t' read -r file_status file previous; do
   for path in "$file" "$previous"; do
     [[ -n "$path" ]] || continue
     for pattern in "${sensitive_paths[@]}"; do
-      [[ "$path" =~ $pattern ]] && refuse "sensitive path: $path"
+      [[ "$path" =~ $pattern ]] || continue
+      if [[ "$command_state" == "open" ]]; then
+        released+=("$path")
+      else
+        refuse "sensitive path: $path${command_risk:+; command mode: $command_state}"
+      fi
+      break
     done
   done
   if [[ "$file_status" == "removed" && "$file" =~ (_test\.|\.test\.|\.spec\.|/tests?/) ]]; then
@@ -199,6 +209,10 @@ fi
 
 if [[ -n "$command_label" ]]; then
   echo "COMMAND MODE: $command_label cleared only because the command-mode window is open until $command_until"
+fi
+if ((${#released[@]} > 0)); then
+  mapfile -t released < <(printf '%s\n' "${released[@]}" | sort -u)
+  echo "COMMAND MODE: sensitive paths cleared only because the command-mode window is open until $command_until: $(printf '%s, ' "${released[@]}" | sed 's/, $//')"
 fi
 echo "CLEARED: PR $pr at $head"
 echo "MERGE WITH: gh pr merge $pr --$method --match-head-commit $head"
