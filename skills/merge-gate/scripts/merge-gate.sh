@@ -10,7 +10,9 @@
 #
 # The rules come from docs/agents/merge-gate.md (written by setup-skills),
 # from the code blocks with these names: checks, sensitive-paths,
-# auto-merge-risk, marker and, optionally, merge-method.
+# auto-merge-risk, marker and, optionally, merge-method and command-mode-risk.
+# A risk in command-mode-risk lands without a human only while the command-mode
+# window, turned on by the human with command-mode.sh, is open.
 # The main branch comes from the main-branch block of docs/agents/commands.md.
 set -uo pipefail
 
@@ -43,6 +45,7 @@ block() {
 mapfile -t required_checks < <(block checks)
 mapfile -t sensitive_paths < <(block sensitive-paths)
 mapfile -t auto_risk < <(block auto-merge-risk)
+mapfile -t command_risk < <(block command-mode-risk)
 marker=$(block marker | head -1)
 method=$(block merge-method | head -1)
 method="${method:-merge}"
@@ -56,6 +59,27 @@ main_branch=$(block main-branch "$commands" | head -1)
 
 reasons=()
 refuse() { reasons+=("$1"); }
+
+# The command-mode window: open while its end time is in the future, and never
+# trusted for more than a day ahead. Sets command_state to open or the reason it is not.
+command_state="off"
+command_until=""
+command_window() {
+  local file now end
+  file=$("$(dirname "${BASH_SOURCE[0]}")/command-mode.sh" path) || { command_state="unreadable"; return; }
+  [[ -f "$file" ]] || return
+  command_until=$(head -1 "$file")
+  now=$(date +%s)
+  if ! end=$(date -d "$command_until" +%s 2>/dev/null); then
+    command_state="invalid end time ($command_until)"
+  elif ((end <= now)); then
+    command_state="expired at $command_until"
+  elif ((end - now > 86400)); then
+    command_state="ends more than 24h ahead ($command_until)"
+  else
+    command_state="open"
+  fi
+}
 
 # The PR.
 fields=$(gh pr view "$pr" --json state,isDraft,baseRefName,mergeable,headRefOid,createdAt \
@@ -91,7 +115,22 @@ else
   for label in "${auto_risk[@]}"; do
     [[ ",$ticket_labels," == *",$label,"* ]] && allowed=1
   done
-  ((allowed)) || refuse "ticket #$ticket risk needs human approval (labels: ${ticket_labels:-none})"
+  command_label=""
+  if ((!allowed)); then
+    for label in "${command_risk[@]}"; do
+      [[ ",$ticket_labels," == *",$label,"* ]] && command_label="$label"
+    done
+  fi
+  if [[ -n "$command_label" ]]; then
+    command_window
+    if [[ "$command_state" == "open" ]]; then
+      allowed=1
+    else
+      refuse "ticket #$ticket risk $command_label needs human approval; command mode: $command_state"
+    fi
+  else
+    ((allowed)) || refuse "ticket #$ticket risk needs human approval (labels: ${ticket_labels:-none})"
+  fi
   # Dates in UTC and the same format: string comparison follows time order.
   if [[ "$ticket_edited" != "-" && "$ticket_edited" > "$created" ]]; then
     refuse "ticket #$ticket edited after the PR was opened"
@@ -158,5 +197,8 @@ if ((${#pending[@]} > 0)); then
   exit 11
 fi
 
+if [[ -n "$command_label" ]]; then
+  echo "COMMAND MODE: $command_label cleared only because the command-mode window is open until $command_until"
+fi
 echo "CLEARED: PR $pr at $head"
 echo "MERGE WITH: gh pr merge $pr --$method --match-head-commit $head"

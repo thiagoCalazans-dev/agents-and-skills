@@ -2,7 +2,7 @@
 
 What `merge-gate` checks before a merge without a human, and how to classify each ticket's risk. When in doubt, the gate calls the human.
 
-The `merge-gate` script reads the **named code blocks** in this file (`checks`, `sensitive-paths`, `auto-merge-risk`, `marker`, `merge-method`). Edit the blocks' contents, but keep their names.
+The `merge-gate` script reads the **named code blocks** in this file (`checks`, `sensitive-paths`, `auto-merge-risk`, `marker`, `merge-method` and, optionally, `command-mode-risk`). Edit the blocks' contents, but keep their names.
 
 ## Required checks
 
@@ -45,6 +45,11 @@ The risks that may land without a human when the gate passes, one label per line
 
 ```auto-merge-risk
 risk:low
+```
+
+Optional: risks that land without a human only while the command-mode window is open (`command-mode.sh on <end>`, at most 24h, closes on its own). Every other check still applies. Leave the block out to keep them with the human always.
+
+```command-mode-risk
 ```
 
 Merge method (`merge`, `squash` or `rebase`):
