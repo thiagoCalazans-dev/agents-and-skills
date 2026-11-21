@@ -13,11 +13,17 @@
 # auto-merge-risk, marker and, optionally, merge-method and command-mode-risk.
 # While the command-mode window, turned on by the human with command-mode.sh,
 # is open (and the command-mode-risk block exists), a risk in command-mode-risk
-# lands without a human and sensitive paths no longer block, except the paths in
-# command-mode-locked-paths (default: the gate's rules and the CI), which never
-# land without a human; every other check holds.
+# lands without a human and sensitive paths no longer block, except the gate's
+# rules and the CI plus any path in command-mode-locked-paths, which never land
+# without a human; every other check holds, and the window is read again right
+# before clearing, so one that closed meanwhile refuses.
 # The main branch comes from the main-branch block of docs/agents/commands.md.
 set -uo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/command-mode-lib.sh" || {
+  echo "ERROR: missing command-mode-lib.sh next to this script" >&2
+  exit 2
+}
 
 fail() {
   echo "ERROR: $1" >&2
@@ -49,9 +55,12 @@ mapfile -t required_checks < <(block checks)
 mapfile -t sensitive_paths < <(block sensitive-paths)
 mapfile -t auto_risk < <(block auto-merge-risk)
 mapfile -t command_risk < <(block command-mode-risk)
-mapfile -t locked_paths < <(block command-mode-locked-paths)
-# An empty or missing block keeps the default: command mode never unlocks these.
-((${#locked_paths[@]} > 0)) || locked_paths=('^docs/agents/' '^\.github/')
+# The gate's rules and the CI never land without a human: always locked, and
+# the block can only add to them, never take them away.
+locked_paths=('^docs/agents/' '^\.github/')
+while IFS= read -r pattern; do
+  [[ -n "$pattern" ]] && locked_paths+=("$pattern")
+done < <(block command-mode-locked-paths)
 marker=$(block marker | head -1)
 method=$(block merge-method | head -1)
 method="${method:-merge}"
@@ -64,27 +73,19 @@ main_branch=$(block main-branch "$commands" | head -1)
 [[ "$method" =~ ^(merge|squash|rebase)$ ]] || fail "invalid merge-method: $method"
 
 reasons=()
+command_label=""
+command_cleared=""
 refuse() { reasons+=("$1"); }
 
 # The command-mode window: open while its end time is in the future, and never
-# trusted for more than a day ahead. Sets command_state to open or the reason it is not.
+# trusted for more than a day ahead. command_state is open, or the reason it is
+# not; command_file is kept so the decision can read it again later.
 command_state="off"
 command_until=""
+command_file=""
 command_window() {
-  local file now end
-  file=$("$(dirname "${BASH_SOURCE[0]}")/command-mode.sh" path) || { command_state="unreadable"; return; }
-  [[ -f "$file" ]] || return
-  command_until=$(head -1 "$file")
-  now=$(date +%s)
-  if ! end=$(date -d "$command_until" +%s 2>/dev/null); then
-    command_state="invalid end time ($command_until)"
-  elif ((end <= now)); then
-    command_state="expired at $command_until"
-  elif ((end - now > 86400)); then
-    command_state="ends more than 24h ahead ($command_until)"
-  else
-    command_state="open"
-  fi
+  command_file=$(command_mode_file) || { command_state="unreadable"; return; }
+  command_mode_read "$command_file"
 }
 
 # Read the window once, and only for repos that use command mode.
@@ -133,6 +134,7 @@ else
   if [[ -n "$command_label" ]]; then
     if [[ "$command_state" == "open" ]]; then
       allowed=1
+      command_cleared=1
     else
       refuse "ticket #$ticket risk $command_label needs human approval; command mode: $command_state"
     fi
@@ -208,6 +210,19 @@ if [[ -z "$opinion" ]]; then
 else
   [[ "$(field Commit)" == "$head" ]] || refuse "verdict is for another commit: $(field Commit)"
   [[ "$(field Verdict)" == "approve" ]] || refuse "verdict: $(field Verdict)"
+fi
+
+# The window can expire or be turned off while the checks above run: when it is
+# what clears the PR, read it again right before clearing, from closed, so a
+# window that is no longer open refuses.
+if ((${#reasons[@]} == 0)) && [[ -n "$command_cleared" || ${#released[@]} -gt 0 ]]; then
+  if [[ -n "$command_file" ]]; then
+    command_mode_read "$command_file"
+  else
+    command_state="unreadable"
+  fi
+  [[ "$command_state" == "open" ]] ||
+    refuse "command mode closed while the gate ran: $command_state"
 fi
 
 if ((${#reasons[@]} > 0)); then
