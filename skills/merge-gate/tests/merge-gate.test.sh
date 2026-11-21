@@ -35,9 +35,10 @@ main
 CFG
 write_config() {
   {
-    printf '```checks\nCI\n```\n```sensitive-paths\n^deploy/\n```\n'
+    printf '```checks\nCI\n```\n```sensitive-paths\n^deploy/\n^docs/agents/\n^\\.github/\n```\n'
     printf '```auto-merge-risk\nrisk:low\nrisk:medium\n```\n'
     [[ "${1:-}" == with-command-mode ]] && printf '```command-mode-risk\nrisk:high\n```\n'
+    [[ "${2:-}" == with-locked ]] && printf '```command-mode-locked-paths\n^deploy/\n```\n'
     printf '```marker\n<!-- REVIEWER-VERDICT -->\n```\n'
   } >"$tmp/repo/docs/agents/merge-gate.md"
 }
@@ -113,6 +114,23 @@ else
   echo "ok   no sensitive path, no sensitive-path line"
 fi
 
+# Inside the window, the gate's rules and the CI never clear (default list).
+expect "inside the window: docs/agents/ calls the human" 10 "gate rules path: docs/agents/merge-gate.md; never cleared by command mode" FAKE_LABELS=risk:high 'FAKE_FILES=modified\tdocs/agents/merge-gate.md\nmodified\tdeploy/x.yml\t'
+expect "inside the window: .github/ calls the human" 10 "gate rules path: .github/workflows/ci.yml; never cleared by command mode" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\t.github/workflows/ci.yml\t'
+expect "inside the window: a rename out of docs/agents/ calls the human" 10 "gate rules path: docs/agents/old.md" FAKE_LABELS=risk:high 'FAKE_FILES=renamed\tsrc/new.md\tdocs/agents/old.md'
+out=$(run_gate FAKE_LABELS=risk:high 'FAKE_FILES=modified\tdocs/agents/merge-gate.md\nmodified\tdeploy/x.yml\t')
+if [[ "$out" == *"sensitive path: deploy/x.yml"* || "$out" == *"CLEARED"* ]]; then
+  echo "FAIL inside the window: only the gate rules path blocks"; failures=$((failures + 1))
+else
+  echo "ok   inside the window: only the gate rules path blocks"
+fi
+
+# A command-mode-locked-paths block replaces the default list.
+write_config with-command-mode with-locked
+expect "custom locked list: its path calls the human" 10 "gate rules path: deploy/x.yml; never cleared by command mode" FAKE_LABELS=risk:high 'FAKE_FILES=modified\tdeploy/x.yml\t'
+expect "custom locked list: .github/ is no longer in it, but still sensitive, so it clears" 0 "COMMAND MODE: sensitive paths cleared" FAKE_LABELS=risk:high 'FAKE_FILES=modified\t.github/workflows/ci.yml\t'
+write_config with-command-mode
+
 # Inside the window, every other check still holds.
 expect "inside the window: a sensitive path with a removed test calls the human" 10 "removes a test" FAKE_LABELS=risk:high 'FAKE_FILES=modified\tdeploy/x.yml\nremoved\tsrc/app_test.go\t'
 expect "inside the window: a sensitive path with a red check calls the human" 10 "check 'CI': failure" FAKE_LABELS=risk:high FAKE_CHECK=failure "$SENS"
@@ -146,6 +164,7 @@ check_mode "a bare past time means the next one" 0 "COMMAND MODE ON until" on "$
 check_mode "off closes it" 0 "COMMAND MODE OFF" off
 check_mode "status after off" 0 "COMMAND MODE OFF" status
 expect "after off, risk:high calls the human" 10 "command mode: off" FAKE_LABELS=risk:high
+expect "after off, docs/agents/ calls the human as a sensitive path" 10 "sensitive path: docs/agents/merge-gate.md; command mode: off" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\tdocs/agents/merge-gate.md\t'
 expect "after off, a sensitive path calls the human" 10 "sensitive path: deploy/x.yml; command mode: off" FAKE_LABELS=risk:medium 'FAKE_FILES=modified\tdeploy/x.yml\t'
 
 ((failures == 0)) && echo "all passed" || { echo "$failures failed"; exit 1; }

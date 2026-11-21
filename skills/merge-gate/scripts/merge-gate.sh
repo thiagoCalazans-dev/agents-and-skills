@@ -13,7 +13,9 @@
 # auto-merge-risk, marker and, optionally, merge-method and command-mode-risk.
 # While the command-mode window, turned on by the human with command-mode.sh,
 # is open (and the command-mode-risk block exists), a risk in command-mode-risk
-# lands without a human and sensitive paths no longer block; every other check holds.
+# lands without a human and sensitive paths no longer block, except the paths in
+# command-mode-locked-paths (default: the gate's rules and the CI), which never
+# land without a human; every other check holds.
 # The main branch comes from the main-branch block of docs/agents/commands.md.
 set -uo pipefail
 
@@ -47,6 +49,9 @@ mapfile -t required_checks < <(block checks)
 mapfile -t sensitive_paths < <(block sensitive-paths)
 mapfile -t auto_risk < <(block auto-merge-risk)
 mapfile -t command_risk < <(block command-mode-risk)
+mapfile -t locked_paths < <(block command-mode-locked-paths)
+# An empty or missing block keeps the default: command mode never unlocks these.
+((${#locked_paths[@]} > 0)) || locked_paths=('^docs/agents/' '^\.github/')
 marker=$(block marker | head -1)
 method=$(block merge-method | head -1)
 method="${method:-merge}"
@@ -167,6 +172,16 @@ while IFS=$'\t' read -r file_status file previous; do
   [[ -n "${file:-}" ]] || continue
   for path in "$file" "$previous"; do
     [[ -n "$path" ]] || continue
+    if [[ "$command_state" == "open" ]]; then
+      locked=0
+      for pattern in "${locked_paths[@]}"; do
+        [[ "$path" =~ $pattern ]] && locked=1 && break
+      done
+      if ((locked)); then
+        refuse "gate rules path: $path; never cleared by command mode"
+        continue
+      fi
+    fi
     for pattern in "${sensitive_paths[@]}"; do
       [[ "$path" =~ $pattern ]] || continue
       if [[ "$command_state" == "open" ]]; then

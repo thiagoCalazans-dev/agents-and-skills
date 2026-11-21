@@ -5,19 +5,19 @@ description: Decide whether a PR can land without a human and, if so, merge it t
 
 # Merge gate
 
-The gate is this skill's script, at `~/.claude/skills/merge-gate/scripts/merge-gate.sh` (or `~/.codex/skills/merge-gate/scripts/merge-gate.sh`, if only Codex has the skill). Below, `<gate>` means that full path. Always call it by the full path, from the repo root: `scripts/merge-gate.sh` alone points to the repo, not to this skill. The gate decides whether a merge may happen; it never merges. It reads the rules from `docs/agents/merge-gate.md`: required checks, sensitive paths, the risks that may land without a human, the verdict marker and the merge method. The main branch comes from the `main-branch` block of `docs/agents/commands.md`. Without those files, tell the user to run `setup-skills` and stop.
+The gate is this skill's script, at `~/.claude/skills/merge-gate/scripts/merge-gate.sh` (or `~/.codex/skills/merge-gate/scripts/merge-gate.sh`, if only Codex has the skill). Below, `<gate>` means that full path. Always call it by the full path, from the repo root: `scripts/merge-gate.sh` alone points to the repo, not to this skill. The gate decides whether a merge may happen; it never merges. It reads the rules from `docs/agents/merge-gate.md`: required checks, sensitive paths, the risks that may land without a human, the command-mode blocks, the verdict marker and the merge method. The main branch comes from the `main-branch` block of `docs/agents/commands.md`. Without those files, tell the user to run `setup-skills` and stop.
 
 The script clears a PR only when all of this holds:
 
 - the PR is open, not a draft, based on the main branch, mergeable and not behind it;
 - it closes exactly one ticket, open, with a risk listed in `auto-merge-risk` (or in `command-mode-risk` while the command-mode window is open), and the ticket wasn't edited after the PR was opened;
 - the required checks are green on the latest commit;
-- no file in the diff matches a sensitive path (unless the command-mode window is open), and no test was removed;
+- no file in the diff matches a sensitive path (unless the command-mode window is open and the path is not locked), and no test was removed;
 - the Reviewer's latest verdict is `approve` on the latest commit.
 
 ## Command mode
 
-`command-mode-risk` (optional block in `merge-gate.md`) turns on command mode for the repo. **Only while the command-mode window is open**, the risks it lists land without a human and sensitive paths no longer block, for any risk. Everything else above still applies: green checks, the approving verdict on the latest commit, no removed test, exactly one ticket. The window is a file outside the repo with an end time; it closes on its own when that time passes, and the gate never trusts one ending more than 24h ahead. Without the block, or with the window closed, nothing changes. Manage it from the repo root with `~/.claude/skills/merge-gate/scripts/command-mode.sh` (or the Codex path):
+`command-mode-risk` (optional block in `merge-gate.md`) turns on command mode for the repo. **Only while the command-mode window is open**, the risks it lists land without a human and sensitive paths no longer block, for any risk, **except the locked paths**: the regexes in the optional `command-mode-locked-paths` block, or, without it (or empty), `^docs/agents/` and `^\.github/` (the gate's rules and the CI). A PR touching a locked path always calls the human, with `gate rules path: <path>; never cleared by command mode`. Everything else above still applies: green checks, the approving verdict on the latest commit, no removed test, exactly one ticket. The window is a file outside the repo with an end time; it closes on its own when that time passes, and the gate never trusts one ending more than 24h ahead. Without the block, or with the window closed, nothing changes. Manage it from the repo root with `~/.claude/skills/merge-gate/scripts/command-mode.sh` (or the Codex path):
 
 ```bash
 <command-mode> on 06:00    # open until the next 06:00 (or an ISO date-time), at most 24h ahead
